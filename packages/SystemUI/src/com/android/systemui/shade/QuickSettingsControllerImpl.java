@@ -37,9 +37,11 @@ import android.animation.ValueAnimator;
 import android.app.Fragment;
 import android.content.res.Resources;
 import android.database.ContentObserver;
+import android.hardware.power.Boost;
 import android.graphics.Insets;
 import android.graphics.Rect;
 import android.graphics.Region;
+import android.os.PowerManagerInternal;
 import android.os.Handler;
 import android.os.UserHandle;
 import android.util.IndentingPrintWriter;
@@ -66,6 +68,7 @@ import com.android.internal.logging.MetricsLogger;
 import com.android.internal.logging.nano.MetricsProto;
 import com.android.internal.policy.ScreenDecorationsUtils;
 import com.android.internal.policy.SystemBarUtils;
+import com.android.server.LocalServices;
 import com.android.systemui.DejankUtils;
 import com.android.systemui.Dumpable;
 import com.android.systemui.classifier.Classifier;
@@ -1052,6 +1055,7 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
         mPanelViewControllerLazy.get().cancelHeightAnimator();
         // end
         DejankUtils.notifyRendererOfExpensiveFrame(mPanelView, "onExpansionStarted");
+        boostInteraction(300);
 
         // Reset scroll position and apply that position to the expanded height.
         float height = mExpansionHeight;
@@ -1309,6 +1313,7 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
                     mIsPulseExpansionResettingAnimator = false;
                 }
             });
+            DejankUtils.notifyRendererOfExpensiveFrame(mPanelView, "applyClippingBounds");
             mClippingAnimator.start();
         }
         mAnimateNextNotificationBounds = false;
@@ -2064,6 +2069,7 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
         mAnimatorExpand = expanding;
         mAnimatingHiddenFromCollapsed =
                 computeExpansionFraction() == 0.0f && target == 0;
+        boostInteraction((int) animator.getDuration());
     }
 
     private void flingQsWithCurrentVelocity(float y, boolean isCancelMotionEvent) {
@@ -2500,6 +2506,13 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
             } else {
                 monitor.end(Cuj.CUJ_NOTIFICATION_SHADE_QS_EXPAND_COLLAPSE);
             }
+        }
+    }
+
+    private void boostInteraction(int durationMs) {
+        PowerManagerInternal pmi = LocalServices.getService(PowerManagerInternal.class);
+        if (pmi != null) {
+            pmi.setPowerBoost(Boost.INTERACTION, durationMs);
         }
     }
 
